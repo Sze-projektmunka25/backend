@@ -108,7 +108,7 @@ router.put('/:id', async (req, res) => {
   }
 
 try {
-  const [result] = await db.query('UPDATE orders SET status = ? WHERE id = ?', [status, orderId]);
+  const [result] = await pool.query('UPDATE orders SET status = ? WHERE id = ?', [status, orderId]);
   console.log('UPDATE eredmény:', result);
   res.json({ success: true });
 } catch (err) {
