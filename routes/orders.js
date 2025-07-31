@@ -107,11 +107,13 @@ router.put('/:id', async (req, res) => {
     return res.status(400).json({ error: 'Érvénytelen státusz' })
   }
 
-  try {
-    await db.query('UPDATE orders SET status = ? WHERE id = ?', [status, orderId])
-    res.json({ success: true })
-  } catch (err) {
-    res.status(500).json({ error: 'Adatbázis hiba' })
+try {
+  const [result] = await db.query('UPDATE orders SET status = ? WHERE id = ?', [status, orderId]);
+  console.log('UPDATE eredmény:', result);
+  res.json({ success: true });
+} catch (err) {
+  console.error('Adatbázis hiba:', err);
+  res.status(500).json({ error: 'Adatbázis hiba' });
   }
   console.log(orderId, status)
 })
