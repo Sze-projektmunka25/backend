@@ -95,4 +95,27 @@ router.get('/:id', authenticateToken, async (req, res) => {
   res.json({ order: orders[0], items });
 });
 
+
+// Rendelés státuszának változtatása
+const VALID_STATUSES = ['Beérkezett', 'Folyamatban', 'Kifizetve', 'Kiszállítva', 'Törölve', 'Félretéve']
+
+router.put('/:id', async (req, res) => {
+  const orderId = req.params.id
+  const { status } = req.body
+
+  if (!VALID_STATUSES.includes(status)) {
+    return res.status(400).json({ error: 'Érvénytelen státusz' })
+  }
+
+  try {
+    await db.query('UPDATE orders SET status = ? WHERE id = ?', [status, orderId])
+    res.json({ success: true })
+  } catch (err) {
+    res.status(500).json({ error: 'Adatbázis hiba' })
+  }
+})
+
+
+
+
 module.exports = router;
