@@ -100,7 +100,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
 const VALID_STATUSES = ['Beérkezett', 'Folyamatban', 'Kifizetve', 'Kiszállítva', 'Törölve', 'Félretéve']
 
 router.put('/:id', async (req, res) => {
-  const orderId = req.params.id
+  const orderId = parseInt(req.params.id)
   const { status } = req.body
 
   if (!VALID_STATUSES.includes(status)) {
