@@ -37,12 +37,32 @@ router.post('/', authenticateToken, isAdmin, async (req, res) => {
 
 // Módosítás (admin)
 router.put('/:id', authenticateToken, isAdmin, async (req, res) => {
-  const { name, description, price, image_url, category_id } = req.body;
+  const { name, description, price, image_url, category_name } = req.body;
+
+  // 1. Kategória ID lekérdezés vagy létrehozás
+  const [existing] = await pool.query(
+    'SELECT id FROM categories WHERE name = ?',
+    [category_name]
+  );
+
+  let category_id;
+  if (existing.length > 0) {
+    category_id = existing[0].id;
+  } else {
+    const [result] = await pool.query(
+      'INSERT INTO categories (name) VALUES (?)',
+      [category_name]
+    );
+    category_id = result.insertId;
+  }
+
+  // 2. Termék módosítása
   await pool.query(
     'UPDATE products SET name=?, description=?, price=?, image_url=?, category_id=? WHERE id=?',
     [name, description, price, image_url, category_id, req.params.id]
   );
-  res.json({message: 'Sikeres módosítás!'});
+
+  res.json({ message: 'Sikeres módosítás!' });
 });
 
 // Törlés (admin)
