@@ -31,7 +31,7 @@ router.post('/', authenticateToken, async (req, res) => {
     // Új rendelés beszúrása
     const [orderResult] = await conn.query(
       'INSERT INTO orders (user_id, status, address, delivery_time) VALUES (?, ?, ?, ?)',
-      [req.user.id, 'pending', address, delivery_time]
+      [req.user.id, 'Beérkezett', address, delivery_time]
     );
     const orderId = orderResult.insertId;
 
