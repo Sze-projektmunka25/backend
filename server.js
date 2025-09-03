@@ -6,7 +6,7 @@ const app = express();
 
 // Middleware
 const corsOptions = {
-  origin: ['http://localhost:8080', 'http://example.hu'], // több domain engedélyezése
+  origin: ['http://localhost:8080', 'https://szeproject22.netlify.app'], // több domain engedélyezése
   credentials: true // opcionális, ha sütiket vagy auth headert használsz
 };
 app.use(cors(corsOptions));
