@@ -7,7 +7,7 @@ const router = express.Router();
 
 // Regisztráció
 router.post('/register', async (req, res) => {
-  const { username, password, email } = req.body;
+  const { username, password, email, phone, default_address } = req.body;
   if (!username || !password) return res.status(400).json({message: "Hiányzó adat!"});
   
   try {
@@ -17,8 +17,8 @@ router.post('/register', async (req, res) => {
     
     const hashed = await bcrypt.hash(password, 10);
     await pool.query(
-      'INSERT INTO users (username, password, email) VALUES (?, ?, ?)',
-      [username, hashed, email]
+      'INSERT INTO users (username, password, email, phone, default_address) VALUES (?, ?, ?,?,?)',
+      [username, hashed, email, phone, default_address]
     );
     res.json({message: 'Sikeres regisztráció!'});
   } catch (err) {
@@ -42,7 +42,7 @@ router.post('/login', async (req, res) => {
     const token = jwt.sign(
       { id: user.id, username: user.username, role: user.role },
       process.env.JWT_SECRET,
-      { expiresIn: '2h' }
+      { expiresIn: '7d' }
     );
     res.json({ token, username: user.username, role: user.role });
   } catch (err) {

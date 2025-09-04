@@ -78,19 +78,31 @@ router.get('/', authenticateToken, isAdmin, async (req, res) => {
   res.json(orders);
 });
 
+
 // Egy rendelés részletei (admin vagy saját)
 router.get('/:id', authenticateToken, async (req, res) => {
-  const [orders] = await pool.query('SELECT * FROM orders WHERE id=?', [req.params.id]);
+  const [orders] = await pool.query(`
+    SELECT o.*, u.username, u.phone
+    FROM orders o
+    LEFT JOIN users u ON o.user_id = u.id
+    WHERE o.id = ?`,
+    [req.params.id]
+  );
+
   if (orders.length === 0) return res.sendStatus(404);
 
   // Csak saját vagy admin
-  if (req.user.role !== 'admin' && orders[0].user_id !== req.user.id) return res.sendStatus(403);
+  if (req.user.role !== 'admin' && orders[0].user_id !== req.user.id) {
+    return res.sendStatus(401);
+  }
 
   const [items] = await pool.query(`
     SELECT oi.*, p.name, p.price 
     FROM order_items oi 
     LEFT JOIN products p ON oi.product_id = p.id
-    WHERE oi.order_id = ?`, [req.params.id]);
+    WHERE oi.order_id = ?`,
+    [req.params.id]
+  );
 
   res.json({ order: orders[0], items });
 });

@@ -26,12 +26,32 @@ router.get('/:id', async (req, res) => {
 
 // Létrehozás (admin)
 router.post('/', authenticateToken, isAdmin, async (req, res) => {
-  const { name, description, price, image_url, category_id } = req.body;
+  const { name, description, price, image_url, category_name } = req.body;
   if (!name || !price) return res.status(400).json({message: "Hiányzó adat!"});
+
+  // 1. Kategória ID lekérdezése vagy létrehozása
+  const [existing] = await pool.query(
+    'SELECT id FROM categories WHERE name = ?',
+    [category_name]
+  );
+
+  let category_id;
+  if (existing.length > 0) {
+    category_id = existing[0].id;
+  } else {
+    const [result] = await pool.query(
+      'INSERT INTO categories (name) VALUES (?)',
+      [category_name]
+    );
+    category_id = result.insertId;
+  }
+
+  // 2. Termék létrehozása
   await pool.query(
     'INSERT INTO products (name, description, price, image_url, category_id) VALUES (?, ?, ?, ?, ?)',
     [name, description, price, image_url, category_id]
   );
+  
   res.json({message: 'Sikeres mentés!'});
 });
 
