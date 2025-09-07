@@ -4,12 +4,22 @@ const cors = require('cors');
 
 const app = express();
 
-// Middleware
+const allowedOrigins = ['http://localhost:8080', 'https://szeproject22.netlify.app'];
+
 const corsOptions = {
-  origin: ['http://localhost:8080', 'https://szeproject22.netlify.app'], // több domain engedélyezése
-  credentials: true // opcionális, ha sütiket vagy auth headert használsz
+  origin: function(origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Nem engedélyezett CORS'));
+    }
+  },
+  credentials: true
 };
+
 app.use(cors(corsOptions));
+app.options('*', cors(corsOptions)); // preflight engedélyezése
+
 app.use(express.json());
 
 // Routes
@@ -20,7 +30,4 @@ app.use('/api/categories', require('./routes/categories'));
 app.use('/api/users', require('./routes/users'));
 
 const PORT = process.env.PORT || 3000;
-
-app.listen(PORT, () => {
-  console.log(`Szerver fut a ${PORT} porton`);
-});
+app.listen(PORT, () => console.log(`Szerver fut a ${PORT} porton`));
