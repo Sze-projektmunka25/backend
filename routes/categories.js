@@ -18,4 +18,21 @@ router.post('/', authenticateToken, isAdmin, async (req, res) => {
   res.json({message: 'Sikeres mentés!'});
 });
 
+// Módosítás (admin)
+router.put('/:id', authenticateToken, isAdmin, async (req, res) => {
+  const { name } = req.body;
+  if (!name) return res.status(400).json({ message: "Hiányzó adat!" });
+
+  await pool.query('UPDATE categories SET name = ? WHERE id = ?', [name, req.params.id]);
+  res.json({ message: 'Kategória módosítva!' });
+});
+
+// Törlés (admin)
+router.delete('/:id', authenticateToken, isAdmin, async (req, res) => {
+  await pool.query('DELETE FROM categories WHERE id = ?', [req.params.id]);
+  res.json({ message: 'Kategória törölve!' });
+});
+
+
+
 module.exports = router;

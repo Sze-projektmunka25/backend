@@ -28,11 +28,28 @@ router.put('/profile', authenticateToken, async (req, res) => {
   }
 
   try {
+    // Email egyediség ellenőrzése (kivéve a saját felhasználó)
+    const [existing] = await pool.query(
+      'SELECT id FROM users WHERE email = ? AND id != ?',
+      [email, req.user.id]
+    );
+    if (existing.length > 0) {
+      return res.status(400).json({ message: 'Ez az email már regisztrálva van egy másik felhasználónál!' });
+    }
+
     let query = 'UPDATE users SET username = ?, email = ?, phone = ?, default_address = ? WHERE id = ?';
     let params = [username, email, phone, default_address, req.user.id];
 
-    // ha jelszót is akar változtatni
+    // Ha jelszót is akar változtatni
     if (password && password.trim() !== '') {
+      // Jelszó erősség ellenőrzése
+      const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{6,}$/;
+      if (!passwordRegex.test(password)) {
+        return res.status(400).json({
+          message: 'A jelszónak legalább 6 karakterből kell állnia, tartalmaznia kell nagybetűt, kisbetűt és számot!'
+        });
+      }
+
       const hashed = await bcrypt.hash(password, 10);
       query = 'UPDATE users SET username = ?, email = ?, password = ?, phone = ?, default_address = ? WHERE id = ?';
       params = [username, email, hashed, phone, default_address, req.user.id];
@@ -44,6 +61,7 @@ router.put('/profile', authenticateToken, async (req, res) => {
     res.status(500).json({ message: 'DB error', error: err });
   }
 });
+
 
 
 module.exports = router;

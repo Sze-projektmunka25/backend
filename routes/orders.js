@@ -36,22 +36,36 @@ router.post('/', authenticateToken, async (req, res) => {
     const orderId = orderResult.insertId;
 
     // Tételek beszúrása
-    const insertItemQuery = `
-      INSERT INTO order_items (order_id, product_id, quantity)
-      VALUES (?, ?, ?)
-    `;
+// Tételek beszúrása
+const insertItemQuery = `
+  INSERT INTO order_items (order_id, product_id, product_name, price, quantity)
+  VALUES (?, ?, ?, ?, ?)
+`;
 
-    for (const item of items) {
-      if (!item.product_id || !item.quantity) {
-        throw new Error('Hiányzó termékadat: product_id, quantity');
-      }
+for (const item of items) {
+  if (!item.product_id || !item.quantity) {
+    throw new Error('Hiányzó termékadat: product_id, quantity');
+  }
 
-      await conn.query(insertItemQuery, [
-        orderId,
-        item.product_id,
-        item.quantity,
-      ]);
-    }
+  // Lekérdezzük az aktuális termék adatait
+  const [prodRows] = await conn.query(
+    'SELECT name, price FROM products WHERE id = ?',
+    [item.product_id]
+  );
+  if (prodRows.length === 0) {
+    throw new Error(`Nem létező termék ID: ${item.product_id}`);
+  }
+  const { name, price } = prodRows[0];
+
+  await conn.query(insertItemQuery, [
+    orderId,
+    item.product_id,
+    name,
+    price,
+    item.quantity,
+  ]);
+}
+
 
     await conn.commit();
     res.json({ message: 'Rendelés leadva!', orderId });
@@ -80,6 +94,7 @@ router.get('/', authenticateToken, isAdmin, async (req, res) => {
 
 
 // Egy rendelés részletei (admin vagy saját)
+// Egy rendelés részletei (admin vagy saját)
 router.get('/:id', authenticateToken, async (req, res) => {
   const [orders] = await pool.query(`
     SELECT o.*, u.username, u.phone
@@ -91,21 +106,21 @@ router.get('/:id', authenticateToken, async (req, res) => {
 
   if (orders.length === 0) return res.sendStatus(404);
 
-  // Csak saját vagy admin
+  // Csak saját rendelés vagy admin
   if (req.user.role !== 'admin' && orders[0].user_id !== req.user.id) {
     return res.sendStatus(401);
   }
 
   const [items] = await pool.query(`
-    SELECT oi.*, p.name, p.price 
-    FROM order_items oi 
-    LEFT JOIN products p ON oi.product_id = p.id
+    SELECT oi.product_id, oi.product_name AS name, oi.price, oi.quantity
+    FROM order_items oi
     WHERE oi.order_id = ?`,
     [req.params.id]
   );
 
   res.json({ order: orders[0], items });
 });
+
 
 
 // Rendelés státuszának változtatása
@@ -121,13 +136,11 @@ router.put('/:id', async (req, res) => {
 
 try {
   const [result] = await pool.query('UPDATE orders SET status = ? WHERE id = ?', [status, orderId]);
-  console.log('UPDATE eredmény:', result);
   res.json({ success: true });
 } catch (err) {
   console.error('Adatbázis hiba:', err);
   res.status(500).json({ error: 'Adatbázis hiba' });
   }
-  console.log(orderId, status)
 })
 
 
