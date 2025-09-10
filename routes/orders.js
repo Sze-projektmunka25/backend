@@ -1,13 +1,14 @@
 const express = require('express');
 const pool = require('../db');
 const { authenticateToken, isAdmin } = require('../middleware/auth');
+const { DateTime } = require('luxon'); //szerver lokációja miatt időeltolódás kezelése
 
 const router = express.Router();
 
 // Saját rendelések lekérdezése (user)
 router.get('/me', authenticateToken, async (req, res) => {
   const [orders] = await pool.query(
-    `SELECT * FROM orders WHERE user_id = ?`, [req.user.id]
+    `SELECT * FROM orders WHERE user_id = ? ORDER BY order_date DESC`, [req.user.id]
   );
   res.json(orders);
 });
@@ -29,10 +30,14 @@ router.post('/', authenticateToken, async (req, res) => {
     await conn.beginTransaction();
 
     // Új rendelés beszúrása
-    const [orderResult] = await conn.query(
-      'INSERT INTO orders (user_id, status, address, delivery_time) VALUES (?, ?, ?, ?)',
-      [req.user.id, 'Beérkezett', address, delivery_time]
-    );
+const budapestNow = DateTime.now()
+  .setZone("Europe/Budapest")
+  .toFormat("yyyy-MM-dd HH:mm:ss");
+
+const [orderResult] = await conn.query(
+  'INSERT INTO orders (user_id, status, address, delivery_time, order_date) VALUES (?, ?, ?, ?, ?)',
+  [req.user.id, 'Beérkezett', address, delivery_time, budapestNow]
+);
     const orderId = orderResult.insertId;
 
     // Tételek beszúrása
@@ -87,20 +92,19 @@ for (const item of items) {
 router.get('/', authenticateToken, isAdmin, async (req, res) => {
   const [orders] = await pool.query(
     `SELECT o.*, u.username 
-     FROM orders o LEFT JOIN users u ON o.user_id = u.id`
+     FROM orders o LEFT JOIN users u ON o.user_id = u.id `
   );
   res.json(orders);
 });
 
 
 // Egy rendelés részletei (admin vagy saját)
-// Egy rendelés részletei (admin vagy saját)
 router.get('/:id', authenticateToken, async (req, res) => {
   const [orders] = await pool.query(`
     SELECT o.*, u.username, u.phone
     FROM orders o
     LEFT JOIN users u ON o.user_id = u.id
-    WHERE o.id = ?`,
+    WHERE o.id = ? `,
     [req.params.id]
   );
 

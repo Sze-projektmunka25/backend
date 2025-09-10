@@ -22,5 +22,5 @@ app.use('/api/users', require('./routes/users'));
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
-  console.log(`Szerver fut a ${PORT} porton`);
+  console.log(`Backend szerver: http://localhost:${PORT}`);
 });
