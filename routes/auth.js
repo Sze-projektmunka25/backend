@@ -5,7 +5,7 @@ const pool = require('../db');
 
 const router = express.Router();
 
-// Regisztráció
+
 // Regisztráció
 router.post('/register', async (req, res) => {
   const { username, password, email, phone, default_address } = req.body;
@@ -43,7 +43,7 @@ router.post('/register', async (req, res) => {
 });
 
 
-// Bejelentkezés
+
 // Bejelentkezés email címmel
 router.post('/login', async (req, res) => {
   const { email, password } = req.body;

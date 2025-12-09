@@ -15,62 +15,45 @@ router.get('/me', authenticateToken, async (req, res) => {
 
 // Új rendelés leadása (user)
 router.post('/', authenticateToken, async (req, res) => {
-  const { items, address, delivery_time } = req.body;
+  const { items, address, delivery_time, payment_method } = req.body;
 
   if (!Array.isArray(items) || items.length === 0) {
     return res.status(400).json({ message: 'Nincs tétel a rendelésben!' });
   }
 
-  if (!address || !delivery_time) {
-    return res.status(400).json({ message: 'Szállítási cím és időpont kötelező!' });
+  if (!address || !delivery_time || !payment_method) {
+    return res.status(400).json({ message: 'Szállítási cím, időpont és fizetési mód kötelező!' });
   }
 
   const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();
 
-    // Új rendelés beszúrása
-const budapestNow = DateTime.now()
-  .setZone("Europe/Budapest")
-  .toFormat("yyyy-MM-dd HH:mm:ss");
+    const budapestNow = DateTime.now()
+      .setZone("Europe/Budapest")
+      .toFormat("yyyy-MM-dd HH:mm:ss");
 
-const [orderResult] = await conn.query(
-  'INSERT INTO orders (user_id, status, address, delivery_time, order_date) VALUES (?, ?, ?, ?, ?)',
-  [req.user.id, 'Beérkezett', address, delivery_time, budapestNow]
-);
+    const [orderResult] = await conn.query(
+      'INSERT INTO orders (user_id, status, address, delivery_time, order_date, payment_method) VALUES (?, ?, ?, ?, ?, ?)',
+      [req.user.id, 'Beérkezett', address, delivery_time, budapestNow, payment_method]
+    );
     const orderId = orderResult.insertId;
 
     // Tételek beszúrása
-// Tételek beszúrása
-const insertItemQuery = `
-  INSERT INTO order_items (order_id, product_id, product_name, price, quantity)
-  VALUES (?, ?, ?, ?, ?)
-`;
+    const insertItemQuery = `
+      INSERT INTO order_items (order_id, product_id, product_name, price, quantity)
+      VALUES (?, ?, ?, ?, ?)
+    `;
 
-for (const item of items) {
-  if (!item.product_id || !item.quantity) {
-    throw new Error('Hiányzó termékadat: product_id, quantity');
-  }
-
-  // Lekérdezzük az aktuális termék adatait
-  const [prodRows] = await conn.query(
-    'SELECT name, price FROM products WHERE id = ?',
-    [item.product_id]
-  );
-  if (prodRows.length === 0) {
-    throw new Error(`Nem létező termék ID: ${item.product_id}`);
-  }
-  const { name, price } = prodRows[0];
-
-  await conn.query(insertItemQuery, [
-    orderId,
-    item.product_id,
-    name,
-    price,
-    item.quantity,
-  ]);
-}
-
+    for (const item of items) {
+      const [prodRows] = await conn.query(
+        'SELECT name, price FROM products WHERE id = ?',
+        [item.product_id]
+      );
+      if (prodRows.length === 0) throw new Error(`Nem létező termék ID: ${item.product_id}`);
+      const { name, price } = prodRows[0];
+      await conn.query(insertItemQuery, [orderId, item.product_id, name, price, item.quantity]);
+    }
 
     await conn.commit();
     res.json({ message: 'Rendelés leadva!', orderId });
@@ -78,10 +61,7 @@ for (const item of items) {
   } catch (err) {
     await conn.rollback();
     console.error('Rendelés hiba:', err);
-    res.status(500).json({
-      message: 'Hiba történt a rendelés során.',
-      error: err.message
-    });
+    res.status(500).json({ message: 'Hiba történt a rendelés során.', error: err.message });
   } finally {
     conn.release();
   }
