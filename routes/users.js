@@ -5,86 +5,114 @@ const { authenticateToken } = require('../middleware/auth');
 
 const router = express.Router();
 
-// Saját profil lekérése
+/* =======================
+   PROFIL LEKÉRÉS
+======================= */
 router.get('/profile', authenticateToken, async (req, res) => {
   try {
     const [rows] = await pool.query(
       'SELECT id, username, email, phone, default_address FROM users WHERE id = ?',
       [req.user.id]
     );
-    if (!rows.length) return res.status(404).json({ message: 'User not found' });
+
+    if (!rows.length) {
+      return res.status(404).json({ message: 'Felhasználó nem található.' });
+    }
+
     res.json(rows[0]);
   } catch (err) {
-    res.status(500).json({ message: 'DB error', error: err });
+    res.status(500).json({ message: 'DB hiba', error: err });
   }
 });
 
-// Saját profil módosítása
+/* =======================
+   PROFIL MÓDOSÍTÁS
+======================= */
 router.put('/profile', authenticateToken, async (req, res) => {
-  const { username, email, password, old_password, phone, default_address } = req.body;
+  const {
+    username,
+    email,
+    phone,
+    default_address,
+    old_password,
+    new_password
+  } = req.body;
 
   if (!username || !email) {
-    return res.status(400).json({ message: 'Felhasználónév és email kötelező' });
+    return res.status(400).json({ message: 'Felhasználónév és email kötelező.' });
   }
 
   try {
-    // Email egyediség ellenőrzése
+    /* EMAIL EGYEDISÉG */
     const [existing] = await pool.query(
       'SELECT id FROM users WHERE email = ? AND id != ?',
       [email, req.user.id]
     );
-    if (existing.length > 0) {
-      return res.status(400).json({ message: 'Ez az email már foglalt!' });
+
+    if (existing.length) {
+      return res.status(400).json({ message: 'Ez az email már foglalt.' });
     }
 
-    // Ha jelszót változtatna → kötelező megadni a jelenlegi jelszót
-    if (password && password.trim() !== '') {
+    /* =======================
+       JELSZÓ MÓDOSÍTÁS (OPCIONÁLIS)
+    ======================= */
+    let hashedPassword = null;
+
+    if (new_password && new_password.trim() !== '') {
       if (!old_password) {
-        return res.status(400).json({ message: 'A jelenlegi jelszó megadása kötelező!' });
+        return res.status(400).json({ message: 'A jelenlegi jelszó megadása kötelező.' });
       }
 
-      // Jelenlegi jelszó lekérése
       const [userRows] = await pool.query(
         'SELECT password FROM users WHERE id = ?',
         [req.user.id]
       );
 
-      const validOldPass = await bcrypt.compare(old_password, userRows[0].password);
-      if (!validOldPass) {
-        return res.status(400).json({ message: 'A jelenlegi jelszó nem megfelelő!' });
+      if (!userRows.length) {
+        return res.status(404).json({ message: 'Felhasználó nem található.' });
       }
 
-      // Új jelszó ellenőrzése
+      const validOldPass = await bcrypt.compare(old_password, userRows[0].password);
+      if (!validOldPass) {
+        return res.status(400).json({ message: 'A jelenlegi jelszó nem megfelelő.' });
+      }
+
       const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{6,}$/;
-      if (!passwordRegex.test(password)) {
+      if (!passwordRegex.test(new_password)) {
         return res.status(400).json({
-          message: 'Az új jelszónak min. 6 karakter, nagybetű, kisbetű és szám szükséges!'
+          message: 'Az új jelszónak min. 6 karakter, kis- és nagybetű, valamint szám kell.'
         });
       }
 
-      // Hash és mentés
-      const hashed = await bcrypt.hash(password, 10);
-      await pool.query(
-        'UPDATE users SET username=?, email=?, password=?, phone=?, default_address=? WHERE id=?',
-        [username, email, hashed, phone, default_address, req.user.id]
-      );
-
-      return res.json({ message: 'Profil és jelszó frissítve!' });
+      hashedPassword = await bcrypt.hash(new_password, 10);
     }
 
-    // Ha nincs jelszó módosítás
-    await pool.query(
-      'UPDATE users SET username=?, email=?, phone=?, default_address=? WHERE id=?',
-      [username, email, phone, default_address, req.user.id]
-    );
-    res.json({ message: 'Profil frissítve!' });
+    /* =======================
+       UPDATE
+    ======================= */
+    const query = hashedPassword
+      ? `UPDATE users
+         SET username=?, email=?, password=?, phone=?, default_address=?
+         WHERE id=?`
+      : `UPDATE users
+         SET username=?, email=?, phone=?, default_address=?
+         WHERE id=?`;
+
+    const params = hashedPassword
+      ? [username, email, hashedPassword, phone, default_address, req.user.id]
+      : [username, email, phone, default_address, req.user.id];
+
+    await pool.query(query, params);
+
+    res.json({
+      message: hashedPassword
+        ? 'Profil és jelszó sikeresen frissítve.'
+        : 'Profil sikeresen frissítve.'
+    });
 
   } catch (err) {
-    res.status(500).json({ message: 'DB error', error: err });
+    res.status(500).json({ message: 'DB hiba', error: err });
   }
 });
-
-
-
 
 module.exports = router;
